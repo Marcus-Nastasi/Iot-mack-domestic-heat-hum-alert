@@ -64,36 +64,63 @@ const unsigned long BEEP_COOLDOWN = 10; // 10 s
 void conectaWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) delay(200);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(200);
+  }
 }
 
 void publica(float t, float h) {
   char payload[160];
-  snprintf(payload, sizeof(payload),
-           "{\"temp\":%.1f,\"hum\":%.1f,\"humidificador\":%s}",
-           t, h, humidificadorOn ? "true" : "false");
+
+  snprintf(
+    payload, 
+    sizeof(payload),
+    "{\"temp\":%.1f,\"hum\":%.1f,\"humidificador\":%s}",
+    t, h, 
+    humidificadorOn ? "true" : "false"
+  );
+  
   // retained = true para o painel receber o último estado ao conectar
   mqtt.publish(TOPIC_STATE, payload, true);
 }
 
 void publicaAlerta(const char* motivo, float t, float h) {
   char payload[160];
-  snprintf(payload, sizeof(payload),
-           "{\"motivo\":\"%s\",\"temp\":%.1f,\"hum\":%.1f}",
-           motivo, t, h);
+
+  snprintf(
+    payload, 
+    sizeof(payload),
+    "{\"motivo\":\"%s\",\"temp\":%.1f,\"hum\":%.1f}",
+    motivo, 
+    t, 
+    h
+  );
+
   mqtt.publish(TOPIC_ALERT, payload);
 }
 
 void onMqttMessage(char* topic, byte* payload, unsigned int len) {
   String msg;
-  for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
+
+  for (unsigned int i = 0; i < len; i++) {
+    msg += (char)payload[i];
+  }
+
   msg.trim(); msg.toLowerCase();
 
   if (String(topic) == TOPIC_CMD) {
-    if (msg == "on")  { humidificadorOn = true;  digitalWrite(RELAY_PIN, RELAY_ACTIVE); }
-    if (msg == "off") { humidificadorOn = false; digitalWrite(RELAY_PIN, RELAY_INACTIVE); }
+    if (msg == "on")  { 
+      humidificadorOn = true; 
+      digitalWrite(RELAY_PIN, RELAY_ACTIVE); 
+    } else if (msg == "off") { 
+      humidificadorOn = false; 
+      digitalWrite(RELAY_PIN, RELAY_INACTIVE); 
+    }
+
     // publica feedback imediato
     float t = isnan(lastT)?0:lastT, h = isnan(lastH)?0:lastH;
+    
     publica(t, h);
   }
 }
@@ -101,9 +128,10 @@ void onMqttMessage(char* topic, byte* payload, unsigned int len) {
 void reconectaMQTT() {
   while (!mqtt.connected()) {
     String id = "esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
+
     if (mqtt.connect(id.c_str())) {
       mqtt.subscribe(TOPIC_CMD);
-      mqtt.publish(TOPIC_STATE, "boot", true); // opcional
+      mqtt.publish(TOPIC_STATE, "boot", true);
     } else {
       delay(1000);
     }
@@ -123,8 +151,12 @@ void atualizaLCD(float t, float h) {
   lcd.print("UMIDIFIC:");
   lcd.print(humidificadorOn ? "ON " : "OFF");
   lcd.print(" ");
-  if (t > TEMP_ALTA) lcd.print("ALTA");
-  else lcd.print("    ");
+
+  if (t > TEMP_ALTA) {
+    lcd.print("ALTA");
+  } else {
+    lcd.print("    ");
+  }
 }
 
 // ------------------ SETUP ------------------
@@ -151,7 +183,10 @@ void setup() {
 
 // ------------------- LOOP ------------------
 void loop() {
-  if (WiFi.status() == WL_CONNECTED && !mqtt.connected()) reconectaMQTT();
+  if (WiFi.status() == WL_CONNECTED && !mqtt.connected()) {
+    reconectaMQTT();
+  }
+
   mqtt.loop();
 
   float t = dht.readTemperature();
@@ -178,13 +213,25 @@ void loop() {
   bool alert = (t > TEMP_ALTA) || (h < HUM_BAIXA_ON);
   digitalWrite(LED_PIN, alert ? HIGH : LOW);
   unsigned long now = millis();
+
   if (alert && (!prevAlert || (now - lastBeep > BEEP_COOLDOWN))) {
     tone(BUZZER_PIN, 2500, 150);
-    if (t > TEMP_ALTA) publicaAlerta("temperatura-alta", t, h);
-    if (h < HUM_BAIXA_ON) publicaAlerta("umidade-baixa", t, h);
+    
+    if (t > TEMP_ALTA) {
+      publicaAlerta("temperatura-alta", t, h);
+    }
+    
+    if (h < HUM_BAIXA_ON) {
+      publicaAlerta("umidade-baixa", t, h);
+    }
+
     lastBeep = now;
   }
-  if (!alert) { noTone(BUZZER_PIN); digitalWrite(BUZZER_PIN, LOW); }
+
+  if (!alert) { 
+    noTone(BUZZER_PIN); 
+    digitalWrite(BUZZER_PIN, LOW); 
+  }
   prevAlert = alert;
 
   // ---- LCD ----
