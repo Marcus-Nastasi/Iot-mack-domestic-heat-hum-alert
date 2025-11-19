@@ -60,6 +60,11 @@ bool prevAlert = false;
 unsigned long lastBeep = 0;
 const unsigned long BEEP_COOLDOWN = 10; // 10 s
 
+unsigned long startTime;
+unsigned long endTime;
+unsigned long totalResponseTime = 0;
+int numMeasurements = 0;
+
 // --------------- FUNÇÕES AUX ---------------
 void conectaWiFi() {
   WiFi.mode(WIFI_STA);
@@ -189,8 +194,24 @@ void loop() {
 
   mqtt.loop();
 
+  if (numMeasurements < 4) {
+    startTime = micros();
+  }
+
   float t = dht.readTemperature();
   float h = dht.readHumidity();
+
+  if (numMeasurements < 4) {
+    endTime = micros();
+
+    unsigned long currentResponseTime = endTime - startTime;
+
+    totalResponseTime += currentResponseTime;
+    numMeasurements++;
+
+    Serial.print("Response Time (temp / hum): ");
+    Serial.println(currentResponseTime);
+  }
 
   if (isnan(t) || isnan(h)) {
     lcd.setCursor(0,0); lcd.print("Erro DHT22       ");
